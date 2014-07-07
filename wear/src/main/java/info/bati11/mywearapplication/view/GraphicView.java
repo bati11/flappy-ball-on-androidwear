@@ -36,6 +36,7 @@ public class GraphicView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        canvas.drawColor(Color.CYAN);
         final Paint paint = new Paint();
         paint.setColor(Color.RED);
         canvas.drawCircle(BALL_START_X, BALL_START_Y + ballY, BALL_R, paint);
