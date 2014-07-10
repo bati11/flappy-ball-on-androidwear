@@ -4,11 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-
-import com.google.android.gms.common.api.Api;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,15 +51,7 @@ public class GraphicView extends View {
         canvas.drawRect(barrier.leftX, 0,                 barrier.rightX(), barrier.roofBottomY, paint);
         canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(),         paint);
 
-        if (isStart && (
-                   ((barrier.leftX < ball.x && ball.x < barrier.rightX()) && (ball.topY() < barrier.roofBottomY && barrier.floorTopY < ball.bottomY()))
-                || ((ball.y < barrier.roofBottomY || barrier.floorTopY < ball.y) && (barrier.leftX < ball.rightX() && ball.leftX() < barrier.rightX()))
-                || (    pow(barrier.leftX - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrier.rightX() - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrier.leftX - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrier.rightX() - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
-                   )
-                )) {
+        if (isStart && isCollision(ball, barrier)) {
             gameoverFlag = true;
         } else if (ball.y > getHeight()) {
             gameoverFlag = true;
@@ -81,6 +70,30 @@ public class GraphicView extends View {
             }
         }
         return true;
+    }
+
+    private boolean isCollision(Ball ball, Barrier barrier) {
+        return collisionCondition1(ball, barrier)
+                || collisionCondition2(ball, barrier)
+                || collisionCondition3(ball, barrier);
+    }
+
+    private boolean collisionCondition1(Ball ball, Barrier barrier) {
+        return (barrier.leftX < ball.x && ball.x < barrier.rightX())
+                && (ball.topY() < barrier.roofBottomY && barrier.floorTopY < ball.bottomY());
+    }
+
+    private boolean collisionCondition2(Ball ball, Barrier barrier) {
+        return (ball.y < barrier.roofBottomY || barrier.floorTopY < ball.y)
+                && (barrier.leftX < ball.rightX() && ball.leftX() < barrier.rightX());
+    }
+
+    private boolean collisionCondition3(Ball ball, Barrier barrier) {
+        return (pow(barrier.leftX - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
+                || pow(barrier.rightX() - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
+                || pow(barrier.leftX - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
+                || pow(barrier.rightX() - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
+        );
     }
 
     private final Runnable task = new Runnable(){
