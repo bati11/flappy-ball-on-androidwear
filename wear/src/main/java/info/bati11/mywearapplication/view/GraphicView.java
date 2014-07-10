@@ -86,9 +86,6 @@ public class GraphicView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (state == State.MISS || state == State.STOP) canvas.drawColor(Color.BLACK);
-        else canvas.drawColor(Color.CYAN);
-
         if (state == State.PLAY) {
             for (Barrier barrier : barrierContainer.barriers()) {
                 if (isCollision(ball, barrier)) {
@@ -108,10 +105,15 @@ public class GraphicView extends View {
 
         }
 
-        final Paint paint = new Paint();
-        paint.setColor(Color.RED);
-        canvas.drawCircle(ball.x, ball.y, ball.r, paint);
+        if (ball.y > getHeight()) {
+            state = State.STOP;
+        }
 
+
+        if (state == State.MISS || state == State.STOP) canvas.drawColor(Color.BLACK);
+        else canvas.drawColor(Color.CYAN);
+
+        final Paint paint = new Paint();
         paint.setColor(Color.GRAY);
         for (Barrier barrier : barrierContainer.barriers()) {
             canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
@@ -123,10 +125,8 @@ public class GraphicView extends View {
         paint.setTextSize(TEXT_SIZE);
         canvas.drawText(Integer.toString(barrierContainer.passedCount), getWidth()/2, TEXT_SIZE, paint);
 
-        if (ball.y > getHeight()) {
-            state = State.STOP;
-            postInvalidate();
-        }
+        paint.setColor(Color.RED);
+        canvas.drawCircle(ball.x, ball.y, ball.r, paint);
     }
 
     @Override
