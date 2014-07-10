@@ -18,9 +18,6 @@ public class GraphicView extends View {
 
     private static final float RATE = 0.5f;
 
-    private static final float BALL_START_X = 60.0f;
-    private static final float BALL_START_Y = 120.0f;
-    private static final float BALL_R = 15.0f;
     private static final int FLAP_DISTANCE = 30;
     private static final float FLAP_MOVE_Y = 20 * RATE;
     private static final float DROP_MOVE_Y = 15 * RATE;
@@ -31,13 +28,13 @@ public class GraphicView extends View {
 
     private boolean gameoverFlag = false;
     private boolean isStart = false;
-    private boolean isFlap = false;
-    private int flapTargetY = 0;
-    private int ballMovedY = 0;
     private int barrierMovedX = 0;
+
+    private Ball ball;
 
     public GraphicView(Context context) {
         super(context);
+        this.ball = new Ball(15.0f, 60.0f, 120.0f);
     }
 
     @Override
@@ -47,7 +44,7 @@ public class GraphicView extends View {
 
         final Paint paint = new Paint();
         paint.setColor(Color.RED);
-        canvas.drawCircle(BALL_START_X, BALL_START_Y + ballMovedY, BALL_R, paint);
+        canvas.drawCircle(ball.x, ball.y, ball.r, paint);
         paint.setColor(Color.GRAY);
 
         float barrierLeftX = getWidth() - barrierMovedX;
@@ -57,24 +54,17 @@ public class GraphicView extends View {
         canvas.drawRect(barrierLeftX, 0,                barrierRightX, roofBarrierBottomY, paint);
         canvas.drawRect(barrierLeftX, floorBarrierTopY, barrierRightX, getHeight(),       paint);
 
-        float ballCenterX  = BALL_START_X;
-        float ballCenterY  = BALL_START_Y + ballMovedY;
-        float ballRightX   = BALL_START_X + BALL_R / 2;
-        float ballLeftX    = BALL_START_X - BALL_R / 2;
-        float ballTopY     = BALL_START_Y - BALL_R / 2 + ballMovedY;
-        float ballBottomY  = BALL_START_Y + BALL_R / 2 + ballMovedY;
-
         if (isStart && (
-                   ((barrierLeftX < ballCenterX && ballCenterX < barrierRightX) && (ballTopY < roofBarrierBottomY && floorBarrierTopY < ballBottomY))
-                || ((ballCenterY < roofBarrierBottomY || floorBarrierTopY < ballCenterY) && (barrierLeftX < ballRightX && ballLeftX < barrierRightX))
-                || (    pow(barrierLeftX - ballCenterX, 2) + pow(floorBarrierTopY - ballCenterY, 2) < pow(BALL_R, 2)
-                     || pow(barrierRightX - ballCenterX, 2) + pow(floorBarrierTopY - ballCenterY, 2) < pow(BALL_R, 2)
-                     || pow(barrierLeftX - ballCenterX, 2) + pow(roofBarrierBottomY - ballCenterY, 2) < pow(BALL_R, 2)
-                     || pow(barrierRightX - ballCenterX, 2) + pow(roofBarrierBottomY - ballCenterY, 2) < pow(BALL_R, 2)
+                   ((barrierLeftX < ball.x && ball.x < barrierRightX) && (ball.topY() < roofBarrierBottomY && floorBarrierTopY < ball.bottomY()))
+                || ((ball.y < roofBarrierBottomY || floorBarrierTopY < ball.y) && (barrierLeftX < ball.rightX() && ball.leftX() < barrierRightX))
+                || (    pow(barrierLeftX - ball.x, 2) + pow(floorBarrierTopY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrierRightX - ball.x, 2) + pow(floorBarrierTopY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrierLeftX - ball.x, 2) + pow(roofBarrierBottomY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrierRightX - ball.x, 2) + pow(roofBarrierBottomY - ball.y, 2) < pow(ball.r, 2)
                    )
                 )) {
             gameoverFlag = true;
-        } else if (ballCenterY > getHeight()) {
+        } else if (ball.y > getHeight()) {
             gameoverFlag = true;
             isStart = false;
             postInvalidate();
@@ -85,8 +75,7 @@ public class GraphicView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         if (!gameoverFlag) {
             if (isStart) {
-                this.isFlap = true;
-                this.flapTargetY = ballMovedY - FLAP_DISTANCE;
+                ball.flap(FLAP_DISTANCE);
             } else {
                 isStart = true;
             }
@@ -98,13 +87,10 @@ public class GraphicView extends View {
         @Override
         public void run() {
             if (isStart) {
-                if (ballMovedY < flapTargetY) {
-                    isFlap = false;
-                    ballMovedY += DROP_MOVE_Y;
-                } else if (isFlap) {
-                    ballMovedY -= FLAP_MOVE_Y;
+                if (ball.isFlap()) {
+                    ball.y -= FLAP_MOVE_Y;
                 } else {
-                    ballMovedY += DROP_MOVE_Y;
+                    ball.y += DROP_MOVE_Y;
                 }
 
                 if (!gameoverFlag) barrierMovedX += BARRIER_MOVE_X;
@@ -121,5 +107,40 @@ public class GraphicView extends View {
     public void onPause(){
         scheduledExecutorService.shutdown();
         scheduledExecutorService = null;
+    }
+
+    private class Ball {
+        public float x;
+        public float y;
+        public float r;
+        private boolean flapFlag = false;
+        private float flapTargetY = 0;
+        private Ball(float r, float x, float y) {
+            this.r = r;
+            this.x = x;
+            this.y = y;
+        }
+        public float rightX() {
+            return x + r;
+        }
+        public float leftX() {
+            return x - r;
+        }
+        public float topY() {
+            return y - r;
+        }
+        public float bottomY() {
+            return y + r;
+        }
+        public void flap(float distance) {
+            flapFlag = true;
+            flapTargetY = y - distance;
+        }
+        public boolean isFlap() {
+            if (y < flapTargetY) {
+                flapFlag = false;
+            }
+            return flapFlag;
+        }
     }
 }
