@@ -40,6 +40,8 @@ public class GraphicView extends View {
     private static final int BLOCK_COUNT = 10;
     private static final int SPACE_BLOCK_COUNT = 4;
 
+    private static final float TEXT_SIZE = 40;
+
     private ScheduledExecutorService scheduledExecutorService = null;
 
     private Ball ball;
@@ -78,7 +80,7 @@ public class GraphicView extends View {
 
     private void ready() {
         ball = new Ball(15.0f, 60.0f, 120.0f);
-        barrierContainer = new BarrierContainer();
+        barrierContainer = new BarrierContainer(ball.leftX());
         state = State.READY;
     }
 
@@ -115,6 +117,11 @@ public class GraphicView extends View {
             canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
             canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(), paint);
         }
+
+        paint.setColor(Color.WHITE);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTextSize(TEXT_SIZE);
+        canvas.drawText(Integer.toString(barrierContainer.passedCount), getWidth()/2, TEXT_SIZE, paint);
 
         if (ball.y > getHeight()) {
             state = State.STOP;
@@ -216,6 +223,7 @@ public class GraphicView extends View {
         public float width;
         public float roofBottomY;
         public float floorTopY;
+        public boolean passed = false;
         private Barrier(float leftX, float width, float roofBarrierBottomY, float floorBarrierTopY) {
             this.leftX = leftX;
             this.width = width;
@@ -229,7 +237,12 @@ public class GraphicView extends View {
 
     private class BarrierContainer {
         private int index = 0;
+        private int passedCount = 0;
+        private float ballLeftX;
         private Map<Integer, Barrier> m = new HashMap<Integer, Barrier>();
+        public BarrierContainer(float ballLeftX) {
+            this.ballLeftX = ballLeftX;
+        }
         public void createBarriers(float x, float width, float roofBottomY, float floorTopY) {
             Barrier barrier = new Barrier(x, width, roofBottomY, floorTopY);
             index++;
@@ -238,8 +251,15 @@ public class GraphicView extends View {
         public void moveBarriers(float distance) {
             List<Integer> deleteTargets = new ArrayList<Integer>();
             for (Map.Entry<Integer, Barrier> entry : m.entrySet()) {
-                entry.getValue().leftX -= distance;
-                if (entry.getValue().rightX() < 0) {
+                Barrier barrier = entry.getValue();
+                barrier.leftX -= distance;
+                if (barrier.rightX() < ballLeftX) {
+                    if (!barrier.passed) {
+                        barrier.passed = true;
+                        passedCount++;
+                    }
+                }
+                if (barrier.rightX() < 0) {
                     deleteTargets.add(entry.getKey());
                 }
             }
