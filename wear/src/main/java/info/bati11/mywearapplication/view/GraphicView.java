@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -22,10 +23,14 @@ public class GraphicView extends View {
 
     private static final float RATE = 0.5f;
 
-    private static final int FLAP_DISTANCE = 30;
     private static final float FLAP_MOVE_Y = 20 * RATE;
     private static final float DROP_MOVE_Y = 15 * RATE;
     private static final float BARRIER_MOVE_X = 8 * RATE;
+
+    private static final int BARRIER_WIDTH = 60;
+    private static final int FLAP_DISTANCE = 20;
+    private static final int BLOCK_COUNT = 10;
+    private static final int SPACE_BLOCK_COUNT = 4;
 
     private ScheduledExecutorService scheduledExecutorService = null;
 
@@ -50,7 +55,6 @@ public class GraphicView extends View {
             if (isStart) postInvalidate();
         }
     };
-
     public GraphicView(Context context) {
         super(context);
         this.ball = new Ball(15.0f, 60.0f, 120.0f);
@@ -60,8 +64,12 @@ public class GraphicView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         if (barrierContainer.last() == null
-                || barrierContainer.last().leftX < getWidth() - BarrierContainer.BARRIER_WIDTH * 3.5) {
-            barrierContainer.createBarriers(getWidth(), 60.0f, 180.0f);
+                || barrierContainer.last().leftX < getWidth() - BARRIER_WIDTH * 3) {
+            float blockHeight = getWidth() / BLOCK_COUNT;
+            Random random = new Random();
+            float roofBottomY = blockHeight * random.nextInt(BLOCK_COUNT - SPACE_BLOCK_COUNT - 1) + 1;
+            float floorTopY = roofBottomY + blockHeight * SPACE_BLOCK_COUNT;
+            barrierContainer.createBarriers(getWidth(), BARRIER_WIDTH, roofBottomY, floorTopY);
         }
 
         if (gameoverFlag) canvas.drawColor(Color.BLACK);
@@ -189,11 +197,10 @@ public class GraphicView extends View {
     }
 
     private class BarrierContainer {
-        public static final int BARRIER_WIDTH = 40;
         private int index = 0;
         private Map<Integer, Barrier> m = new HashMap<Integer, Barrier>();
-        public void createBarriers(float x, float roofBottomY, float floorTopY) {
-            Barrier barrier = new Barrier(x, BARRIER_WIDTH, roofBottomY, floorTopY);
+        public void createBarriers(float x, float width, float roofBottomY, float floorTopY) {
+            Barrier barrier = new Barrier(x, width, roofBottomY, floorTopY);
             index++;
             m.put(index, barrier);
         }
