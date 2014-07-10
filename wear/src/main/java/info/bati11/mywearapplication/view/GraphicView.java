@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.google.android.gms.common.api.Api;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -21,24 +23,26 @@ public class GraphicView extends View {
     private static final int FLAP_DISTANCE = 30;
     private static final float FLAP_MOVE_Y = 20 * RATE;
     private static final float DROP_MOVE_Y = 15 * RATE;
-    private static final int BARRIER_WIDTH = 40;
     private static final float BARRIER_MOVE_X = 8 * RATE;
 
     private ScheduledExecutorService scheduledExecutorService = null;
 
     private boolean gameoverFlag = false;
     private boolean isStart = false;
-    private int barrierMovedX = 0;
 
     private Ball ball;
+    private Barrier barrier;
 
     public GraphicView(Context context) {
         super(context);
         this.ball = new Ball(15.0f, 60.0f, 120.0f);
+        this.barrier = null;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+        if (barrier == null) barrier = new Barrier(getWidth(), 60.0f, 180.0f);
+
         if (gameoverFlag) canvas.drawColor(Color.BLACK);
         else              canvas.drawColor(Color.CYAN);
 
@@ -47,20 +51,16 @@ public class GraphicView extends View {
         canvas.drawCircle(ball.x, ball.y, ball.r, paint);
         paint.setColor(Color.GRAY);
 
-        float barrierLeftX = getWidth() - barrierMovedX;
-        float barrierRightX = barrierLeftX + BARRIER_WIDTH;
-        float roofBarrierBottomY = 60.0f;
-        float floorBarrierTopY = 180.0f;
-        canvas.drawRect(barrierLeftX, 0,                barrierRightX, roofBarrierBottomY, paint);
-        canvas.drawRect(barrierLeftX, floorBarrierTopY, barrierRightX, getHeight(),       paint);
+        canvas.drawRect(barrier.leftX, 0,                 barrier.rightX(), barrier.roofBottomY, paint);
+        canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(),         paint);
 
         if (isStart && (
-                   ((barrierLeftX < ball.x && ball.x < barrierRightX) && (ball.topY() < roofBarrierBottomY && floorBarrierTopY < ball.bottomY()))
-                || ((ball.y < roofBarrierBottomY || floorBarrierTopY < ball.y) && (barrierLeftX < ball.rightX() && ball.leftX() < barrierRightX))
-                || (    pow(barrierLeftX - ball.x, 2) + pow(floorBarrierTopY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrierRightX - ball.x, 2) + pow(floorBarrierTopY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrierLeftX - ball.x, 2) + pow(roofBarrierBottomY - ball.y, 2) < pow(ball.r, 2)
-                     || pow(barrierRightX - ball.x, 2) + pow(roofBarrierBottomY - ball.y, 2) < pow(ball.r, 2)
+                   ((barrier.leftX < ball.x && ball.x < barrier.rightX()) && (ball.topY() < barrier.roofBottomY && barrier.floorTopY < ball.bottomY()))
+                || ((ball.y < barrier.roofBottomY || barrier.floorTopY < ball.y) && (barrier.leftX < ball.rightX() && ball.leftX() < barrier.rightX()))
+                || (    pow(barrier.leftX - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrier.rightX() - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrier.leftX - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
+                     || pow(barrier.rightX() - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
                    )
                 )) {
             gameoverFlag = true;
@@ -93,7 +93,7 @@ public class GraphicView extends View {
                     ball.y += DROP_MOVE_Y;
                 }
 
-                if (!gameoverFlag) barrierMovedX += BARRIER_MOVE_X;
+                if (!gameoverFlag) barrier.leftX -= BARRIER_MOVE_X;
             }
             if (isStart) postInvalidate();
         }
@@ -141,6 +141,21 @@ public class GraphicView extends View {
                 flapFlag = false;
             }
             return flapFlag;
+        }
+    }
+
+    private class Barrier {
+        private static final int BARRIER_WIDTH = 40;
+        public float leftX;
+        public float roofBottomY;
+        public float floorTopY;
+        private Barrier(float leftX, float roofBarrierBottomY, float floorBarrierTopY) {
+            this.leftX = leftX;
+            this.roofBottomY = roofBarrierBottomY;
+            this.floorTopY = floorBarrierTopY;
+        }
+        public float rightX() {
+            return leftX + BARRIER_WIDTH;
         }
     }
 }
