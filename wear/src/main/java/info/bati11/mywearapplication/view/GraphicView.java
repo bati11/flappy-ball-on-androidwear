@@ -36,6 +36,7 @@ public class GraphicView extends View {
     private static final float BARRIER_MOVE_X = 8 * RATE;
 
     private static final int BARRIER_WIDTH = 60;
+    private static final int BARRIER_INTERVAL = BARRIER_WIDTH * 3;
     private static final int FLAP_DISTANCE = 20;
     private static final int BLOCK_COUNT = 10;
     private static final int SPACE_BLOCK_COUNT = 4;
@@ -73,6 +74,17 @@ public class GraphicView extends View {
             }
         }
     };
+
+    public void onResume(){
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(task, 0L, (long)(RATE * 100), TimeUnit.MILLISECONDS);
+    }
+
+    public void onPause(){
+        scheduledExecutorService.shutdown();
+        scheduledExecutorService = null;
+    }
+
     public GraphicView(Context context) {
         super(context);
         ready();
@@ -87,46 +99,29 @@ public class GraphicView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         if (state == State.PLAY) {
-            for (Barrier barrier : barrierContainer.barriers()) {
-                if (isCollision(ball, barrier)) {
-                    state = State.MISS;
-                    break;
-                }
+            if (isCollisionAny(ball, barrierContainer)) {
+                state = State.MISS;
             }
 
-            if (barrierContainer.last() == null
-                    || barrierContainer.last().leftX < getWidth() - BARRIER_WIDTH * 3) {
-                float blockHeight = getWidth() / BLOCK_COUNT;
-                Random random = new Random();
-                float roofBottomY = blockHeight * random.nextInt(BLOCK_COUNT - SPACE_BLOCK_COUNT - 1) + 1;
-                float floorTopY = roofBottomY + blockHeight * SPACE_BLOCK_COUNT;
+            if (isCreateNewBarrier(barrierContainer)) {
+                float[] fs = getBarrierParams(getWidth());
+                float roofBottomY = fs[0];
+                float floorTopY = fs[1];
                 barrierContainer.createBarriers(getWidth(), BARRIER_WIDTH, roofBottomY, floorTopY);
             }
-
         }
 
-        if (ball.y > getHeight()) {
+        if (isBallDroped()) {
             state = State.STOP;
         }
 
 
-        if (state == State.MISS || state == State.STOP) canvas.drawColor(Color.BLACK);
-        else canvas.drawColor(Color.CYAN);
+        drawBackgroundColor(canvas);
 
         final Paint paint = new Paint();
-        paint.setColor(Color.GRAY);
-        for (Barrier barrier : barrierContainer.barriers()) {
-            canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
-            canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(), paint);
-        }
-
-        paint.setColor(Color.WHITE);
-        paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTextSize(TEXT_SIZE);
-        canvas.drawText(Integer.toString(barrierContainer.passedCount), getWidth()/2, TEXT_SIZE, paint);
-
-        paint.setColor(Color.RED);
-        canvas.drawCircle(ball.x, ball.y, ball.r, paint);
+        drawBarriers(canvas, paint);
+        drawPassCountText(canvas, paint);
+        drawBall(canvas, paint);
     }
 
     @Override
@@ -149,33 +144,76 @@ public class GraphicView extends View {
         return true;
     }
 
-    public void onResume(){
-        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledExecutorService.scheduleAtFixedRate(task, 0L, (long)(RATE * 100), TimeUnit.MILLISECONDS);
+    private void drawBackgroundColor(Canvas canvas) {
+        if (state == State.MISS || state == State.STOP) canvas.drawColor(Color.BLACK);
+        else canvas.drawColor(Color.CYAN);
     }
 
-    public void onPause(){
-        scheduledExecutorService.shutdown();
-        scheduledExecutorService = null;
+    private void drawBarriers(Canvas canvas, Paint paint) {
+        paint.setColor(Color.GRAY);
+        for (Barrier barrier : barrierContainer.barriers()) {
+            canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
+            canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(), paint);
+        }
     }
 
-    private boolean isCollision(Ball ball, Barrier barrier) {
+    private void drawPassCountText(Canvas canvas, Paint paint) {
+        paint.setColor(Color.WHITE);
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTextSize(TEXT_SIZE);
+        canvas.drawText(Integer.toString(barrierContainer.passedCount), getWidth()/2, TEXT_SIZE, paint);
+    }
+
+    private void drawBall(Canvas canvas, Paint paint) {
+        paint.setColor(Color.RED);
+        canvas.drawCircle(ball.x, ball.y, ball.r, paint);
+    }
+
+    private boolean isCreateNewBarrier(BarrierContainer barrierContainer) {
+        return barrierContainer.last() == null
+                || barrierContainer.last().leftX < getWidth() - BARRIER_INTERVAL;
+    }
+
+    private boolean isBallDroped() {
+        return ball.y > getHeight();
+    }
+
+    private static boolean isCollisionAny(Ball ball, BarrierContainer barrierContainer) {
+        boolean result = false;
+        for (Barrier barrier : barrierContainer.barriers()) {
+            if (isCollision(ball, barrier)) {
+                result = true;
+                break;
+            }
+        }
+        return result;
+    }
+
+    private static float[] getBarrierParams(float canvasWidth) {
+        float blockHeight = canvasWidth / BLOCK_COUNT;
+        Random random = new Random();
+        float roofBottomY = blockHeight * random.nextInt(BLOCK_COUNT - SPACE_BLOCK_COUNT - 1) + 1;
+        float floorTopY = roofBottomY + blockHeight * SPACE_BLOCK_COUNT;
+        return new float[]{ roofBottomY, floorTopY};
+    }
+
+    private static boolean isCollision(Ball ball, Barrier barrier) {
         return collisionCondition1(ball, barrier)
                 || collisionCondition2(ball, barrier)
                 || collisionCondition3(ball, barrier);
     }
 
-    private boolean collisionCondition1(Ball ball, Barrier barrier) {
+    private static boolean collisionCondition1(Ball ball, Barrier barrier) {
         return (barrier.leftX < ball.x && ball.x < barrier.rightX())
                 && (ball.topY() < barrier.roofBottomY && barrier.floorTopY < ball.bottomY());
     }
 
-    private boolean collisionCondition2(Ball ball, Barrier barrier) {
+    private static boolean collisionCondition2(Ball ball, Barrier barrier) {
         return (ball.y < barrier.roofBottomY || barrier.floorTopY < ball.y)
                 && (barrier.leftX < ball.rightX() && ball.leftX() < barrier.rightX());
     }
 
-    private boolean collisionCondition3(Ball ball, Barrier barrier) {
+    private static boolean collisionCondition3(Ball ball, Barrier barrier) {
         return (pow(barrier.leftX - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
                 || pow(barrier.rightX() - ball.x, 2) + pow(barrier.floorTopY - ball.y, 2) < pow(ball.r, 2)
                 || pow(barrier.leftX - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
