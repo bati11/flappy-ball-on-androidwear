@@ -7,8 +7,10 @@ import android.graphics.Paint;
 import android.view.MotionEvent;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,7 +59,10 @@ public class GraphicView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        barrierContainer.createBarriers(getWidth(), 60.0f, 180.0f);
+        if (barrierContainer.last() == null
+                || barrierContainer.last().leftX < getWidth() - BarrierContainer.BARRIER_WIDTH * 3.5) {
+            barrierContainer.createBarriers(getWidth(), 60.0f, 180.0f);
+        }
 
         if (gameoverFlag) canvas.drawColor(Color.BLACK);
         else              canvas.drawColor(Color.CYAN);
@@ -168,35 +173,47 @@ public class GraphicView extends View {
     }
 
     private class Barrier {
-        private static final int BARRIER_WIDTH = 40;
         public float leftX;
+        public float width;
         public float roofBottomY;
         public float floorTopY;
-        private Barrier(float leftX, float roofBarrierBottomY, float floorBarrierTopY) {
+        private Barrier(float leftX, float width, float roofBarrierBottomY, float floorBarrierTopY) {
             this.leftX = leftX;
+            this.width = width;
             this.roofBottomY = roofBarrierBottomY;
             this.floorTopY = floorBarrierTopY;
         }
         public float rightX() {
-            return leftX + BARRIER_WIDTH;
+            return leftX + width;
         }
     }
 
     private class BarrierContainer {
+        public static final int BARRIER_WIDTH = 40;
+        private int index = 0;
         private Map<Integer, Barrier> m = new HashMap<Integer, Barrier>();
         public void createBarriers(float x, float roofBottomY, float floorTopY) {
-            if (m.size() == 0) {
-                Barrier barrier = new Barrier(x, roofBottomY, floorTopY);
-                m.put(0, barrier);
-            }
+            Barrier barrier = new Barrier(x, BARRIER_WIDTH, roofBottomY, floorTopY);
+            index++;
+            m.put(index, barrier);
         }
         public void moveBarriers(float distance) {
+            List<Integer> deleteTargets = new ArrayList<Integer>();
             for (Map.Entry<Integer, Barrier> entry : m.entrySet()) {
                 entry.getValue().leftX -= distance;
+                if (entry.getValue().rightX() < 0) {
+                    deleteTargets.add(entry.getKey());
+                }
+            }
+            for (Integer target : deleteTargets) {
+                m.remove(target);
             }
         }
         public Collection<Barrier> barriers() {
             return m.values();
+        }
+        public Barrier last() {
+            return m.get(index);
         }
     }
 }
