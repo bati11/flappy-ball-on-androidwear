@@ -7,6 +7,9 @@ import android.graphics.Paint;
 import android.view.MotionEvent;
 import android.view.View;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +31,7 @@ public class GraphicView extends View {
     private boolean isStart = false;
 
     private Ball ball;
-    private Barrier barrier;
+    private BarrierContainer barrierContainer;
 
     private final Runnable task = new Runnable(){
         @Override
@@ -40,7 +43,7 @@ public class GraphicView extends View {
                     ball.y += DROP_MOVE_Y;
                 }
 
-                if (!gameoverFlag) barrier.leftX -= BARRIER_MOVE_X;
+                if (!gameoverFlag) barrierContainer.moveBarriers(BARRIER_MOVE_X);
             }
             if (isStart) postInvalidate();
         }
@@ -49,12 +52,12 @@ public class GraphicView extends View {
     public GraphicView(Context context) {
         super(context);
         this.ball = new Ball(15.0f, 60.0f, 120.0f);
-        this.barrier = null;
+        this.barrierContainer = new BarrierContainer();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (barrier == null) barrier = new Barrier(getWidth(), 60.0f, 180.0f);
+        barrierContainer.createBarriers(getWidth(), 60.0f, 180.0f);
 
         if (gameoverFlag) canvas.drawColor(Color.BLACK);
         else              canvas.drawColor(Color.CYAN);
@@ -64,11 +67,18 @@ public class GraphicView extends View {
         canvas.drawCircle(ball.x, ball.y, ball.r, paint);
         paint.setColor(Color.GRAY);
 
-        canvas.drawRect(barrier.leftX, 0,                 barrier.rightX(), barrier.roofBottomY, paint);
-        canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(),         paint);
+        for (Barrier barrier : barrierContainer.barriers()) {
+            canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
+            canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(), paint);
+        }
 
-        if (isStart && isCollision(ball, barrier)) {
-            gameoverFlag = true;
+        if (isStart) {
+            for (Barrier barrier : barrierContainer.barriers()) {
+                if (isCollision(ball, barrier)) {
+                    gameoverFlag = true;
+                    break;
+                }
+            }
         } else if (ball.y > getHeight()) {
             gameoverFlag = true;
             isStart = false;
@@ -169,6 +179,24 @@ public class GraphicView extends View {
         }
         public float rightX() {
             return leftX + BARRIER_WIDTH;
+        }
+    }
+
+    private class BarrierContainer {
+        private Map<Integer, Barrier> m = new HashMap<Integer, Barrier>();
+        public void createBarriers(float x, float roofBottomY, float floorTopY) {
+            if (m.size() == 0) {
+                Barrier barrier = new Barrier(x, roofBottomY, floorTopY);
+                m.put(0, barrier);
+            }
+        }
+        public void moveBarriers(float distance) {
+            for (Map.Entry<Integer, Barrier> entry : m.entrySet()) {
+                entry.getValue().leftX -= distance;
+            }
+        }
+        public Collection<Barrier> barriers() {
+            return m.values();
         }
     }
 }
