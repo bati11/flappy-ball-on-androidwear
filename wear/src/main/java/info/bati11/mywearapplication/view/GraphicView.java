@@ -30,6 +30,22 @@ public class GraphicView extends View {
     private Ball ball;
     private Barrier barrier;
 
+    private final Runnable task = new Runnable(){
+        @Override
+        public void run() {
+            if (isStart) {
+                if (ball.isFlap()) {
+                    ball.y -= FLAP_MOVE_Y;
+                } else {
+                    ball.y += DROP_MOVE_Y;
+                }
+
+                if (!gameoverFlag) barrier.leftX -= BARRIER_MOVE_X;
+            }
+            if (isStart) postInvalidate();
+        }
+    };
+
     public GraphicView(Context context) {
         super(context);
         this.ball = new Ball(15.0f, 60.0f, 120.0f);
@@ -72,6 +88,16 @@ public class GraphicView extends View {
         return true;
     }
 
+    public void onResume(){
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(task, 0L, (long)(RATE * 100), TimeUnit.MILLISECONDS);
+    }
+
+    public void onPause(){
+        scheduledExecutorService.shutdown();
+        scheduledExecutorService = null;
+    }
+
     private boolean isCollision(Ball ball, Barrier barrier) {
         return collisionCondition1(ball, barrier)
                 || collisionCondition2(ball, barrier)
@@ -94,32 +120,6 @@ public class GraphicView extends View {
                 || pow(barrier.leftX - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
                 || pow(barrier.rightX() - ball.x, 2) + pow(barrier.roofBottomY - ball.y, 2) < pow(ball.r, 2)
         );
-    }
-
-    private final Runnable task = new Runnable(){
-        @Override
-        public void run() {
-            if (isStart) {
-                if (ball.isFlap()) {
-                    ball.y -= FLAP_MOVE_Y;
-                } else {
-                    ball.y += DROP_MOVE_Y;
-                }
-
-                if (!gameoverFlag) barrier.leftX -= BARRIER_MOVE_X;
-            }
-            if (isStart) postInvalidate();
-        }
-    };
-
-    public void onResume(){
-        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledExecutorService.scheduleAtFixedRate(task, 0L, (long)(RATE * 100), TimeUnit.MILLISECONDS);
-    }
-
-    public void onPause(){
-        scheduledExecutorService.shutdown();
-        scheduledExecutorService = null;
     }
 
     private class Ball {
