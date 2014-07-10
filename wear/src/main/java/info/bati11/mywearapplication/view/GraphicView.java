@@ -20,6 +20,14 @@ import java.util.concurrent.TimeUnit;
 import static java.lang.Math.*;
 
 public class GraphicView extends View {
+    private enum State {
+        READY,
+        PLAY,
+        MISS,
+        STOP,
+    }
+
+    private State state = State.READY;
 
     private static final float RATE = 0.5f;
 
@@ -34,79 +42,102 @@ public class GraphicView extends View {
 
     private ScheduledExecutorService scheduledExecutorService = null;
 
-    private boolean gameoverFlag = false;
-    private boolean isStart = false;
-
     private Ball ball;
     private BarrierContainer barrierContainer;
 
     private final Runnable task = new Runnable(){
         @Override
         public void run() {
-            if (isStart) {
-                if (ball.isFlap()) {
-                    ball.y -= FLAP_MOVE_Y;
-                } else {
+            switch (state) {
+                case READY:
+                    break;
+                case PLAY:
+                    if (ball.isFlap()) {
+                        ball.y -= FLAP_MOVE_Y;
+                    } else {
+                        ball.y += DROP_MOVE_Y;
+                    }
+                    barrierContainer.moveBarriers(BARRIER_MOVE_X);
+                    postInvalidate();
+                    break;
+                case MISS:
                     ball.y += DROP_MOVE_Y;
-                }
-
-                if (!gameoverFlag) barrierContainer.moveBarriers(BARRIER_MOVE_X);
+                    postInvalidate();
+                    break;
+                case STOP:
+                    break;
+                default:
+                    break;
             }
-            if (isStart) postInvalidate();
         }
     };
     public GraphicView(Context context) {
         super(context);
-        this.ball = new Ball(15.0f, 60.0f, 120.0f);
-        this.barrierContainer = new BarrierContainer();
+        ready();
+    }
+
+    private void ready() {
+        ball = new Ball(15.0f, 60.0f, 120.0f);
+        barrierContainer = new BarrierContainer();
+        state = State.READY;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (barrierContainer.last() == null
-                || barrierContainer.last().leftX < getWidth() - BARRIER_WIDTH * 3) {
-            float blockHeight = getWidth() / BLOCK_COUNT;
-            Random random = new Random();
-            float roofBottomY = blockHeight * random.nextInt(BLOCK_COUNT - SPACE_BLOCK_COUNT - 1) + 1;
-            float floorTopY = roofBottomY + blockHeight * SPACE_BLOCK_COUNT;
-            barrierContainer.createBarriers(getWidth(), BARRIER_WIDTH, roofBottomY, floorTopY);
-        }
+        if (state == State.MISS || state == State.STOP) canvas.drawColor(Color.BLACK);
+        else canvas.drawColor(Color.CYAN);
 
-        if (gameoverFlag) canvas.drawColor(Color.BLACK);
-        else              canvas.drawColor(Color.CYAN);
+        if (state == State.PLAY) {
+            for (Barrier barrier : barrierContainer.barriers()) {
+                if (isCollision(ball, barrier)) {
+                    state = State.MISS;
+                    break;
+                }
+            }
+
+            if (barrierContainer.last() == null
+                    || barrierContainer.last().leftX < getWidth() - BARRIER_WIDTH * 3) {
+                float blockHeight = getWidth() / BLOCK_COUNT;
+                Random random = new Random();
+                float roofBottomY = blockHeight * random.nextInt(BLOCK_COUNT - SPACE_BLOCK_COUNT - 1) + 1;
+                float floorTopY = roofBottomY + blockHeight * SPACE_BLOCK_COUNT;
+                barrierContainer.createBarriers(getWidth(), BARRIER_WIDTH, roofBottomY, floorTopY);
+            }
+
+        }
 
         final Paint paint = new Paint();
         paint.setColor(Color.RED);
         canvas.drawCircle(ball.x, ball.y, ball.r, paint);
-        paint.setColor(Color.GRAY);
 
+        paint.setColor(Color.GRAY);
         for (Barrier barrier : barrierContainer.barriers()) {
             canvas.drawRect(barrier.leftX, 0, barrier.rightX(), barrier.roofBottomY, paint);
             canvas.drawRect(barrier.leftX, barrier.floorTopY, barrier.rightX(), getHeight(), paint);
         }
 
-        if (isStart) {
-            for (Barrier barrier : barrierContainer.barriers()) {
-                if (isCollision(ball, barrier)) {
-                    gameoverFlag = true;
-                    break;
-                }
-            }
-        } else if (ball.y > getHeight()) {
-            gameoverFlag = true;
-            isStart = false;
+        if (ball.y > getHeight()) {
+            state = State.STOP;
             postInvalidate();
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (!gameoverFlag) {
-            if (isStart) {
+        switch (state) {
+            case READY:
+                state = State.PLAY;
+                break;
+            case PLAY:
                 ball.flap(FLAP_DISTANCE);
-            } else {
-                isStart = true;
-            }
+                break;
+            case MISS:
+                break;
+            case STOP:
+                ready();
+                break;
+            default:
+                break;
         }
         return true;
     }
