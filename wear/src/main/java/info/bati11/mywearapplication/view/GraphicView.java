@@ -17,6 +17,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import info.bati11.mywearapplication.MyActivity;
+
 import static java.lang.Math.*;
 
 public class GraphicView extends View {
@@ -48,6 +50,8 @@ public class GraphicView extends View {
     private Ball ball;
     private BarrierContainer barrierContainer;
 
+    private boolean sentMessageFlag = false;
+
     private final Runnable task = new Runnable(){
         @Override
         public void run() {
@@ -55,6 +59,7 @@ public class GraphicView extends View {
                 case READY:
                     break;
                 case PLAY:
+                    sentMessageFlag = false;
                     if (ball.isFlap()) {
                         ball.y -= FLAP_MOVE_Y;
                     } else {
@@ -68,6 +73,11 @@ public class GraphicView extends View {
                     postInvalidate();
                     break;
                 case STOP:
+                    if (!sentMessageFlag) {
+                        MyActivity activity = (MyActivity) getContext();
+                        activity.sendMessage(barrierContainer.passedCount);
+                        sentMessageFlag = true;
+                    }
                     break;
                 default:
                     break;
